@@ -1,4 +1,4 @@
-﻿using IronXL;
+﻿//using IronXL;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Support.UI;
@@ -10,6 +10,8 @@ using System.Linq;
 using System.Windows.Forms;
 using TestJira.DataModel;
 using TestJira.Manager;
+using System.Data.OleDb;
+using System.Globalization;
 
 namespace TestJira
 {
@@ -19,45 +21,13 @@ namespace TestJira
         public Form1()
         {
             InitializeComponent();
-            IsCrSubTask.Checked = true;
+            IsCrSubTask.Checked = false;
+            textBox1.Text = "ruturaj.chintawar@tssconsultancy.com";
+            textBox2.Text = "Sept@123456";
+            textBox4.Text = "Faisal.Shaikh";
+            textBox5.Text = "Aml";
+            textBox3.Text = "( AML Incredibles )";
         }
-
-        private void button1_Click(object sender, EventArgs e)
-        {
-            IWebDriver driver = new ChromeDriver();
-            string url = "https://jira.tssconsultancy.com/browse/";
-            string url1 = url + "WEB-55784";
-            driver.Navigate().GoToUrl(url1);
-            string username = "ruturaj.chintawar@tssconsultancy.com";
-            string password = "Sept@123456";
-            driver.FindElement(By.Id("login-form-username")).SendKeys(username);
-            driver.FindElement(By.Id("login-form-password")).SendKeys(password);
-            driver.FindElement(By.Id("login-form-submit")).Click();
-
-            WebDriverWait wait = new WebDriverWait(driver, TimeSpan.FromSeconds(20));
-            wait.Until(webdriver => webdriver.FindElement(By.Id("opsbar-operations_more")));
-
-            List<string> jiraNos = textBox1.Text.Split(',').ToList();
-            List<string> time = textBox3.Text.Split(',').ToList();
-            for (int i = 0; i < jiraNos.Count; i++)
-            {
-                driver.Navigate().GoToUrl(url + jiraNos[i]);
-                driver.FindElement(By.Id("opsbar-operations_more")).Click();
-                driver.FindElement(By.Id("create-subtask")).Click();
-                WebDriverWait waita = new WebDriverWait(driver, TimeSpan.FromSeconds(100));
-                waita.Until(webdriver => webdriver.FindElement(By.Id("issuetype-single-select")));
-                driver.FindElement(By.Id("summary")).SendKeys(textBox2.Text);
-                SelectElement oSelect = new SelectElement(driver.FindElement(By.Id("customfield_10503")));
-                oSelect.SelectByText("TSS Consultancy");
-                driver.FindElement(By.Id("components-textarea")).SendKeys("AML");
-                driver.FindElement(By.Id("assign-to-me-trigger")).Click();
-                driver.FindElement(By.Id("timetracking_originalestimate")).SendKeys(time[i]);
-                driver.FindElement(By.Id("customfield_16000-2")).Click();
-                driver.FindElement(By.Id("create-issue-submit")).Click();
-            }
-
-        }
-
         private void button2_Click(object sender, EventArgs e)
         {
             int size = -1;
@@ -77,15 +47,6 @@ namespace TestJira
                 }
             }
         }
-        private DataTable ReadExcel(string fileName)
-        {
-            WorkBook workbook = WorkBook.Load(fileName);
-            WorkSheet sheet = workbook.DefaultWorkSheet;
-            return sheet.ToDataTable(true);
-        }
-
-        
-
         private bool ValidateFileColumns(DataTable fileData)
         {
             List<string> columns = new List<string>() { "jirano", "task", "teammember", "estimateinhours", "storypoint", "taskcreated" , "name", "fullname" };
@@ -119,53 +80,64 @@ namespace TestJira
         {
             List<MainJiraInfoModel> mainJiraInfoModels = new List<MainJiraInfoModel>();
             HashSet<string> dupCheckMainJira = new HashSet<string>();
-            foreach (DataRow row in fileData.Rows)
+            
+            for(int i = 0; i < fileData.Rows.Count; i++)
             {
-                string mainJiraNo = row.Field<string>("jirano");
-                if (!string.IsNullOrWhiteSpace(mainJiraNo) && !dupCheckMainJira.Contains(mainJiraNo))
+                DataRow row = fileData.Rows[i];
+                string mainJiraNo;
+                if (string.IsNullOrWhiteSpace(row.Field<string>("jirano")) || row.Field<string>("jirano").ToLower().Replace(" ", "").Substring(0, 3) != "web" || dupCheckMainJira.Contains(row.Field<string>("jirano")))
+                    continue;
+                else
+                    mainJiraNo = row.Field<string>("jirano").Replace(" ", "").ToLower();
+
+                MainJiraInfoModel mainJiraInfoModel = new MainJiraInfoModel();
+                mainJiraInfoModel.MainJiraNo = mainJiraNo;
+                mainJiraInfoModel.StoryPoints = row.Field<int?>("storypoint");
+                mainJiraInfoModel.DevOwner = nameDic[row.Field<string>("teammember")];
+                mainJiraInfoModel.BranchName = mainJiraNo.Substring(4);
+
+                mainJiraInfoModel.jiraInfoModels = new List<JiraInfoModel>();
+
+                while (i < fileData.Rows.Count  && !string.IsNullOrEmpty(fileData.Rows[i].Field<string>("teammember")))
                 {
-                    if (mainJiraNo.ToLower().Replace(" ", "").Substring(0, 3) != "web")
+                    JiraInfoModel jiraInfoModel = new JiraInfoModel();
+                    jiraInfoModel.SubTaskName = fileData.Rows[i].Field<string>("task");
+                    jiraInfoModel.TeamMember = nameDic[fileData.Rows[i].Field<string>("teammember")];
+                    jiraInfoModel.EstimateInHours = fileData.Rows[i].Field<Object>("estimateinhours");
+                    jiraInfoModel.AlreadyCreated = fileData.Rows[i].Field<string>("taskcreated");
+                    i++;
+                    if (jiraInfoModel.AlreadyCreated != null && jiraInfoModel.AlreadyCreated.ToLower().Replace(" ", "") == "done")
                         continue;
-                    MainJiraInfoModel mainJiraInfoModel = new MainJiraInfoModel();
-                    mainJiraInfoModel.MainJiraNo = mainJiraNo;
-                    mainJiraInfoModel.StoryPoints = row.Field<double>("storypoint");
-                    mainJiraInfoModel.DevOwner = nameDic[row.Field<string>("teammember")];
-                    mainJiraInfoModels.Add(mainJiraInfoModel);
-                    dupCheckMainJira.Add(mainJiraNo);
+
+                    mainJiraInfoModel.jiraInfoModels.Add(jiraInfoModel);
                 }
+                dupCheckMainJira.Add(mainJiraNo);
+                mainJiraInfoModel.NoOfSubTask = mainJiraInfoModel.jiraInfoModels.Count;
+                mainJiraInfoModels.Add(mainJiraInfoModel);
             }
+
             return mainJiraInfoModels;
         }
-        private List<JiraInfoModel> GetJiraInfoModel(DataTable fileData, Dictionary<string, string> nameDic)
+        private DataTable GetDataTableFromCsv(string path)
         {
-            List<JiraInfoModel> jiraInfoModels = new List<JiraInfoModel>();
-            string mainJiraNo = null;
-            foreach (DataRow row in fileData.Rows)
+            string header = 1 == 1 ? "Yes" : "No";
+
+            string pathOnly = Path.GetDirectoryName(path);
+            string fileName = Path.GetFileName(path);
+
+            string sql = @"SELECT * FROM [" + fileName + "]";
+
+            using (OleDbConnection connection = new OleDbConnection(
+                      @"Provider=Microsoft.Jet.OLEDB.4.0;Data Source=" + pathOnly +
+                      ";Extended Properties=\"Text;HDR=" + header + "\""))
+            using (OleDbCommand command = new OleDbCommand(sql, connection))
+            using (OleDbDataAdapter adapter = new OleDbDataAdapter(command))
             {
-                if (!string.IsNullOrEmpty(row.Field<string>("teammember")) && nameDic.ContainsKey(row.Field<string>("teammember")))
-                {
-                    if (!string.IsNullOrEmpty(row.Field<string>("jirano")))
-                    {
-                        mainJiraNo = row.Field<string>("jirano").Replace(" ", "").ToLower();
-                    }
-                    if (mainJiraNo.ToLower().Replace(" ", "").Substring(0, 3) != "web")
-                        continue;
-
-                    JiraInfoModel jiraInfoModel = new JiraInfoModel();
-                    jiraInfoModel.MainJiraNo = mainJiraNo;
-                    jiraInfoModel.SubTaskName = row.Field<string>("task");
-                    if (string.IsNullOrEmpty(jiraInfoModel.SubTaskName))
-                        jiraInfoModel.SubTaskName = row.Field<string>("jiraname");
-                    jiraInfoModel.TeamMember = nameDic[row.Field<string>("teammember")];
-                    jiraInfoModel.EstimateInHours = row.Field<Object>("estimateinhours");
-                    jiraInfoModel.AlreadyCreated = row.Field<string>("taskcreated");
-
-                    if (jiraInfoModel.AlreadyCreated.ToLower().Replace(" ", "") == "done")
-                        continue;
-                    jiraInfoModels.Add(jiraInfoModel);
-                }
+                DataTable dataTable = new DataTable();
+                dataTable.Locale = CultureInfo.CurrentCulture;
+                adapter.Fill(dataTable);
+                return dataTable;
             }
-            return jiraInfoModels;
         }
         private string ValidateSprint(string fileName)
         {
@@ -196,8 +168,6 @@ namespace TestJira
             //{
             //    driver.Close();
             //}
-
-
         }
         private void Create_Click(object sender, EventArgs e)
         {
@@ -215,7 +185,7 @@ namespace TestJira
                 }
 
 
-                DataTable fileData = ReadExcel(file_path);
+                DataTable fileData = GetDataTableFromCsv(file_path);
 
                 // columnname lowercase and space reduction
                 for (int i = 0; i < fileData.Columns.Count; i++)
@@ -229,19 +199,12 @@ namespace TestJira
                 // convert into model
                 Dictionary<string, string> nameList = GetNameList(fileData);
                 List<MainJiraInfoModel> mainJiraInfoModels = GetMainJiraModel(fileData, nameList);
-                List<JiraInfoModel> jiraInfoModels = GetJiraInfoModel(fileData, nameList);
 
-                // validate sprint
-
-                //ValidateSprint(path.Text);
-
-                // 
                 string fileName = Path.GetFileNameWithoutExtension(path.Text);
-                string sprintName = fileName.Substring(fileName.Length - 10).Replace("_", "/") + "( AML Incredibles )";
+                string sprintName = fileName.Substring(fileName.Length - 10).Replace("_", "/") + textBox3.Text;
 
                 AutomationManager automationManager = new AutomationManager();
-                automationManager.UpdateJira(mainJiraInfoModels,jiraInfoModels, sprintName,IsCrSubTask.Checked);
-
+                automationManager.UpdateJira(mainJiraInfoModels, sprintName, IsCrSubTask.Checked,textBox1.Text,textBox2.Text,textBox4.Text,textBox5.Text,textBox3.Text);
 
             }
             catch (Exception ex)
@@ -250,15 +213,6 @@ namespace TestJira
             }
 
         }
-
-        private void textBox4_TextChanged(object sender, EventArgs e)
-        {
-
-        }
-
-        //Update Main
-
-        //Create checkin and code review
 
     }
 }

@@ -13,17 +13,15 @@ namespace TestJira.Manager
 {
     public class AutomationManager
     {
-        public void UpdateJira(List<MainJiraInfoModel> mainJiraInfoModels,List<JiraInfoModel> jiraInfoModels, string sprintName, bool IsCrCreated)
+        public void UpdateJira(List<MainJiraInfoModel> mainJiraInfoModels, string sprintName, bool IsCrCreated,string username,string password,string codeReview2,string Components,string Client)
         {
             IWebDriver driver = new ChromeDriver();
             string url = "https://jira.tssconsultancy.com/browse/";
-            string url1 = url + "WEB-55784";
-            driver.Navigate().GoToUrl(url1);
-            string username = "ruturaj.chintawar@tssconsultancy.com";
-            string password = "Sept@123456";
+            driver.Navigate().GoToUrl(url + "WEB-55784");
             driver.FindElement(By.Id("login-form-username")).SendKeys(username);
             driver.FindElement(By.Id("login-form-password")).SendKeys(password);
             driver.FindElement(By.Id("login-form-submit")).Click();
+
             //Dictionary<string, List<JiraInfoModel>> alreadyCreatedSubTask = new Dictionary<string, List<JiraInfoModel>>();
             foreach (MainJiraInfoModel mainJiraInfoModel in mainJiraInfoModels)
             {
@@ -32,18 +30,18 @@ namespace TestJira.Manager
                 //alreadyCreatedSubTask.Add(mainJiraInfoModel.MainJiraNo, GetAlreadyCreatedJiraList(driver));
 
                 driver.FindElement(By.Id("edit-issue")).Click();
-                
+
                 Thread.Sleep(4000);
 
                 IWebElement componentElement = driver.FindElement(By.Id("components-textarea"));
-                AddInInputString(componentElement, "AML");
+                AddInInputString(componentElement, Components);
 
                 IWebElement assigneeNameElement = driver.FindElement(By.Id("assignee-field"));
                 AddInAutoSuggestionDropDown(assigneeNameElement, mainJiraInfoModel.DevOwner);
 
                 IWebElement originalEsitimate = driver.FindElement(By.Id("timetracking_originalestimate"));
-                AddInInputString(originalEsitimate, "1m");
-                
+                AddInInputString(originalEsitimate, "1h");
+
                 IWebElement sprintNameElement = driver.FindElement(By.Id("customfield_10300-field"));
                 AddInAutoSuggestionDropDown(sprintNameElement, sprintName);
 
@@ -51,24 +49,25 @@ namespace TestJira.Manager
                 AddInAutoSuggestionDropDown(devOwnerElement, mainJiraInfoModel.DevOwner);
 
                 IWebElement branchNameElement = driver.FindElement(By.Id("customfield_14100"));
-                AddInInputString(branchNameElement, mainJiraInfoModel.MainJiraNo.Substring(4));
+                AddInInputString(branchNameElement, mainJiraInfoModel.BranchName);
 
                 IWebElement storyPointsElement = driver.FindElement(By.Id("customfield_10004"));
-                AddInInputString(storyPointsElement, mainJiraInfoModel.StoryPoints.ToString());
+                AddInInputString(storyPointsElement, mainJiraInfoModel.StoryPoints == null ? "" : mainJiraInfoModel.StoryPoints.ToString());
 
                 //team name
                 driver.FindElement(By.Id("customfield_16000-2")).Click();
 
                 driver.FindElement(By.Id("edit-issue-submit")).Click();
-                
+
                 Thread.Sleep(4000);
+
                 if (IsCrCreated)
                 {
                     driver.FindElement(By.Id("opsbar-operations_more")).Click();
                     Thread.Sleep(2000);
                     driver.FindElement(By.Id("create-subtask")).Click();
                     Thread.Sleep(4000);
-                    
+
                     IWebElement summaryElement = driver.FindElement(By.Id("summary"));
                     AddInInputString(summaryElement, "Code Review 2 and Checkin");
 
@@ -76,10 +75,10 @@ namespace TestJira.Manager
                     oSelect.SelectByText("TSS Consultancy");
 
                     IWebElement componentElement1 = driver.FindElement(By.Id("components-textarea"));
-                    AddInInputString(componentElement1, "AML");
+                    AddInInputString(componentElement1, Components);
 
                     IWebElement assigneeNameElement1 = driver.FindElement(By.Id("assignee-field"));
-                    AddInAutoSuggestionDropDown(assigneeNameElement1, "Faisal.Shaikh");
+                    AddInAutoSuggestionDropDown(assigneeNameElement1, codeReview2);
 
                     IWebElement originalEsitimate1 = driver.FindElement(By.Id("timetracking_originalestimate"));
                     AddInInputString(originalEsitimate1, "1h");
@@ -88,41 +87,37 @@ namespace TestJira.Manager
                     driver.FindElement(By.Id("create-issue-submit")).Click();
                     Thread.Sleep(4000);
                 }
-                
+                foreach (JiraInfoModel jiraModel in mainJiraInfoModel.jiraInfoModels)
+                {
+
+                    //if (IsSubTaskPresent(jiraModel, alreadyCreatedSubTask[jiraModel.MainJiraNo]))
+                    //    continue;
+
+                    driver.FindElement(By.Id("opsbar-operations_more")).Click();
+                    Thread.Sleep(2000);
+                    driver.FindElement(By.Id("create-subtask")).Click();
+                    Thread.Sleep(4000);
+
+                    IWebElement summaryElement1 = driver.FindElement(By.Id("summary"));
+                    AddInInputString(summaryElement1, jiraModel.SubTaskName);
+
+                    SelectElement oSelect = new SelectElement(driver.FindElement(By.Id("customfield_10503")));
+                    oSelect.SelectByText("TSS Consultancy");
+
+                    IWebElement componentElement2 = driver.FindElement(By.Id("components-textarea"));
+                    AddInInputString(componentElement2, "AML");
+
+                    IWebElement assigneeNameElement2 = driver.FindElement(By.Id("assignee-field"));
+                    AddInAutoSuggestionDropDown(assigneeNameElement2, jiraModel.TeamMember);
+
+                    IWebElement originalEsitimate2 = driver.FindElement(By.Id("timetracking_originalestimate"));
+                    AddInInputString(originalEsitimate2, jiraModel.EstimateInHours ==  null ? "": jiraModel.EstimateInHours.ToString() + "h");
+
+                    driver.FindElement(By.Id("customfield_16000-2")).Click();
+                    driver.FindElement(By.Id("create-issue-submit")).Click();
+                    Thread.Sleep(4000);
+                }
             }
-
-            foreach (JiraInfoModel jiraModel in jiraInfoModels)
-            {
-                driver.Navigate().GoToUrl(url + jiraModel.MainJiraNo);
-
-                //if (IsSubTaskPresent(jiraModel, alreadyCreatedSubTask[jiraModel.MainJiraNo]))
-                //    continue;
-
-                driver.FindElement(By.Id("opsbar-operations_more")).Click();
-                Thread.Sleep(2000);
-                driver.FindElement(By.Id("create-subtask")).Click();
-                Thread.Sleep(4000);
-
-                IWebElement summaryElement = driver.FindElement(By.Id("summary"));
-                AddInInputString(summaryElement, jiraModel.SubTaskName);
-
-                SelectElement oSelect = new SelectElement(driver.FindElement(By.Id("customfield_10503")));
-                oSelect.SelectByText("TSS Consultancy");
-
-                IWebElement componentElement = driver.FindElement(By.Id("components-textarea"));
-                AddInInputString(componentElement, "AML");
-
-                IWebElement assigneeNameElement = driver.FindElement(By.Id("assignee-field"));
-                AddInAutoSuggestionDropDown(assigneeNameElement, jiraModel.TeamMember);
-
-                IWebElement originalEsitimate = driver.FindElement(By.Id("timetracking_originalestimate"));
-                AddInInputString(originalEsitimate, jiraModel.EstimateInHours.ToString()+"h");
-
-                driver.FindElement(By.Id("customfield_16000-2")).Click();
-                driver.FindElement(By.Id("create-issue-submit")).Click();
-                Thread.Sleep(4000);
-            }
-
             driver.Quit();
         }
         public void AddInAutoSuggestionDropDown(IWebElement entity,String entityValue)
@@ -132,8 +127,8 @@ namespace TestJira.Manager
             Thread.Sleep(2000);
             entity.SendKeys(entityValue);
             Thread.Sleep(2000);
-            entity.SendKeys(Keys.ArrowDown);
-            entity.SendKeys(Keys.Enter);
+            entity.SendKeys(OpenQA.Selenium.Keys.ArrowDown);
+            entity.SendKeys(OpenQA.Selenium.Keys.Enter);
         }
         public void AddInInputString(IWebElement entity, String entityValue)
         {
@@ -178,61 +173,5 @@ namespace TestJira.Manager
             return false;
         }
 
-        //public static DataTable GetData(string path, string sheet, bool considerDefault)
-        //{
-
-        //    using (var mem = new MemoryStream(File.ReadAllBytes(path)))
-        //    {
-        //        Workbook workBook = Workbook.Load(mem);
-
-        //        //Workbook workbook = Workbook.Load(path);
-        //        var worksheet = workBook.Worksheets.Find(w => w.Name == sheet);
-        //        if (considerDefault && worksheet == null)
-        //            worksheet = workBook.Worksheets[0];
-        //        if (worksheet == null)
-        //            throw new ApplicationException("Invalid sheet name " + sheet);
-
-        //        DataTable dt = new DataTable();
-
-        //        // add the headers
-
-        //        int cols = worksheet.Cells.LastColIndex;
-        //        for (int i = 0; i <= cols; i++)
-        //        {
-        //            dt.Columns.Add(worksheet.Cells[0, i].StringValue);
-        //        }
-        //        int rows = worksheet.Cells.LastRowIndex;
-        //        for (int i = 1; i <= rows; i++)
-        //        {
-        //            DataRow row = dt.NewRow();
-
-        //            for (int j = 0; j <= cols; j++)
-        //            {
-        //                row[j] = worksheet.Cells[i, j].Value ?? DBNull.Value;
-        //            }
-
-        //            dt.Rows.Add(row);
-        //        }
-
-        //        for (int i = 0; i < dt.Rows.Count; i++)
-        //        {
-        //            bool isEmpty = true;
-        //            foreach (DataColumn column in dt.Columns)
-        //            {
-        //                object obj = dt.Rows[i][column];
-        //                if (obj != null && obj != DBNull.Value && !ExtraFunctions.IsAllSpaces(obj.ToString()))
-        //                    isEmpty = false;
-        //            }
-
-        //            if (isEmpty)
-        //            {
-        //                dt.Rows.RemoveAt(i);
-        //                i--;
-        //            }
-        //        }
-
-        //        return dt;
-        //    }
-        //}
     }
 }
