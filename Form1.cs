@@ -12,6 +12,8 @@ using TestJira.DataModel;
 using TestJira.Manager;
 using System.Data.OleDb;
 using System.Globalization;
+using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace TestJira
 {
@@ -169,7 +171,32 @@ namespace TestJira
             //    driver.Close();
             //}
         }
-        private void Create_Click(object sender, EventArgs e)
+        public List<List<MainJiraInfoModel>> partition(List<MainJiraInfoModel> values)
+        {
+            List<List<MainJiraInfoModel>> listOfMainJiraInfoModel = new List<List<MainJiraInfoModel>>();
+            List<MainJiraInfoModel> list1 = new List<MainJiraInfoModel>();
+            List<MainJiraInfoModel> list2 = new List<MainJiraInfoModel>();
+            List<MainJiraInfoModel> list3 = new List<MainJiraInfoModel>();
+            List<MainJiraInfoModel> list4 = new List<MainJiraInfoModel>();
+            for (int i = 0; i < values.Count; i++)
+            {
+                if(i % 4==0)
+                    list1.Add(values[i]);
+                if(i % 4 == 1)
+                    list2.Add(values[i]);
+                if(i % 4 == 2)
+                    list3.Add(values[i]);
+                if (i % 4 == 3)
+                    list4.Add(values[i]);
+
+            }
+            listOfMainJiraInfoModel.Add(list1);
+            listOfMainJiraInfoModel.Add(list2);
+            listOfMainJiraInfoModel.Add(list3);
+            listOfMainJiraInfoModel.Add(list4);
+            return listOfMainJiraInfoModel;
+        }
+        private async void Create_Click(object sender, EventArgs e)
         {
 
             try
@@ -203,8 +230,19 @@ namespace TestJira
                 string fileName = Path.GetFileNameWithoutExtension(path.Text);
                 string sprintName = fileName.Substring(fileName.Length - 10).Replace("_", "/") + textBox3.Text;
 
+
+                List<List<MainJiraInfoModel>> partitions = partition(mainJiraInfoModels);
                 AutomationManager automationManager = new AutomationManager();
-                automationManager.UpdateJira(mainJiraInfoModels, sprintName, IsCrSubTask.Checked,textBox1.Text,textBox2.Text,textBox4.Text,textBox5.Text,textBox3.Text);
+
+                var Task1 = Task.Run(() => new AutomationManager().UpdateJira(partitions[0], sprintName, IsCrSubTask.Checked, textBox1.Text, textBox2.Text, textBox4.Text, textBox5.Text, textBox3.Text));
+                var Task2 = Task.Run(() => new AutomationManager().UpdateJira(partitions[1], sprintName, IsCrSubTask.Checked, textBox1.Text, textBox2.Text, textBox4.Text, textBox5.Text, textBox3.Text));
+                var Task3 = Task.Run(() => new AutomationManager().UpdateJira(partitions[2], sprintName, IsCrSubTask.Checked, textBox1.Text, textBox2.Text, textBox4.Text, textBox5.Text, textBox3.Text));
+                var Task4 = Task.Run(() => new AutomationManager().UpdateJira(partitions[3], sprintName, IsCrSubTask.Checked, textBox1.Text, textBox2.Text, textBox4.Text, textBox5.Text, textBox3.Text));
+
+                await Task1;
+                await Task2;
+                await Task3;
+                await Task4;
 
             }
             catch (Exception ex)

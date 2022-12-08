@@ -15,6 +15,8 @@ namespace TestJira.Manager
     {
         public void UpdateJira(List<MainJiraInfoModel> mainJiraInfoModels, string sprintName, bool IsCrCreated,string username,string password,string codeReview2,string Components,string Client)
         {
+            if (mainJiraInfoModels.Count == 0)
+                return;
             IWebDriver driver = new ChromeDriver();
             string url = "https://jira.tssconsultancy.com/browse/";
             driver.Navigate().GoToUrl(url + "WEB-55784");
@@ -117,8 +119,8 @@ namespace TestJira.Manager
                     driver.FindElement(By.Id("create-issue-submit")).Click();
                     Thread.Sleep(4000);
                 }
-            }
-            driver.Quit();
+        }
+        driver.Quit();
         }
         public void AddInAutoSuggestionDropDown(IWebElement entity,String entityValue)
         {
